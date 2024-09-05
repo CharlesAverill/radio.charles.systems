@@ -42,12 +42,48 @@ token_expires_at = datetime.fromisoformat(os.getenv('SPOTIFY_TOKEN_EXPIRES_AT', 
 scheduler = BackgroundScheduler()
 scheduler.start()
 
+# Step 3: Refresh the access token if needed
+def refresh_access_token(force=False):
+    global access_token, refresh_token, token_expires_at
+    if True or datetime.utcnow() >= token_expires_at:
+        token_url = 'https://accounts.spotify.com/api/token'
+        headers = {
+            'Authorization': 'Basic ' + b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode(),
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        data = {
+            'grant_type': 'refresh_token',
+            'refresh_token': refresh_token
+        }
+        response = requests.post(token_url, headers=headers, data=data)
+        if response.status_code == 200:
+            tokens = response.json()
+            access_token = tokens.get('access_token')
+            expires_in = tokens.get('expires_in')
+            token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            
+            # Update tokens in .env file
+            set_key('.env', 'SPOTIFY_ACCESS_TOKEN', access_token)
+            set_key('.env', 'SPOTIFY_TOKEN_EXPIRES_AT', token_expires_at.isoformat())
+            print("Refreshed token")
+        else:
+            print("Failed to refresh token")
+            print(response)
+
+
 def fetch_and_store_current_track():
+    refresh_access_token(True)
     # Fetch current track info from Spotify API
     response = requests.get('https://api.spotify.com/v1/me/player/currently-playing', headers={
         'Authorization': f'Bearer {access_token}'
     })
-    track_info = response.json()
+
+    track_info = None
+    try:
+        track_info = response.json()
+    except:
+        print(response)
+        return
 
     if not track_info.get('is_playing'):
         return
@@ -132,35 +168,7 @@ def callback():
 
     return redirect('/')
 
-# Step 3: Refresh the access token if needed
-def refresh_access_token(force=False):
-    global access_token, refresh_token, token_expires_at
-    if force or datetime.utcnow() >= token_expires_at:
-        token_url = 'https://accounts.spotify.com/api/token'
-        headers = {
-            'Authorization': 'Basic ' + b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode(),
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        data = {
-            'grant_type': 'refresh_token',
-            'refresh_token': refresh_token
-        }
-        response = requests.post(token_url, headers=headers, data=data)
-        if response.status_code == 200:
-            tokens = response.json()
-            access_token = tokens.get('access_token')
-            expires_in = tokens.get('expires_in')
-            token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-            
-            # Update tokens in .env file
-            set_key('.env', 'SPOTIFY_ACCESS_TOKEN', access_token)
-            set_key('.env', 'SPOTIFY_TOKEN_EXPIRES_AT', token_expires_at.isoformat())
-            print("Refreshed token")
-        else:
-            print("Failed to refresh token")
-            print(response)
-
-# Step 4: Fetch currently playing track
+# S# Step 4: Fetch currently playing track
 @app.route('/currently-playing')
 def currently_playing():
     global access_token

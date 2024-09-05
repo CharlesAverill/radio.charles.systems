@@ -24,18 +24,15 @@
 
     <section class="current-track">
         <h2>Currently Playing</h2>
-        <div id="current-track-info">
-            {% if current_track %}
-                <div class="track-info">
+        <div>
+                <div class="track-info" id='current-track-info' style='display: none'>
                     <img src="{{ current_track.album_cover }}" alt="Album Cover" class="album-cover" id="album-cover">
                     <div class="track-details">
                         <h3 id="track-name">{{ current_track.name }}</h3>
                         <p id="track-artist">{{ current_track.artist }}</p>
                     </div>
                 </div>
-            {% else %}
-                <p>No track information available.</p>
-            {% endif %}
+                <p id='no-track-info'>No track information available.</p>
         </div>
     </section>
 
@@ -80,8 +77,13 @@
                         document.getElementById('track-name').textContent = data.current_track.name;
                         document.getElementById('track-artist').textContent = data.current_track.artist;
                         document.getElementById('album-cover').src = data.current_track.album_cover;
+
+			document.getElementById('current-track-info').style.display = 'block';
+			document.getElementById('no-track-info').style.display = 'none';
 		    } else {
 			console.log('no current track');
+			document.getElementById('current-track-info').style.display = 'none';
+			document.getElementById('no-track-info').style.display = 'block';
 		    }
                 })
                 .catch(error => console.error('Error fetching current track:', error));
