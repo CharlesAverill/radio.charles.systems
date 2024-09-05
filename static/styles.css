@@ -1,0 +1,132 @@
+/* General styles */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+header, footer {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 10px 0;
+}
+
+header h1 {
+    margin: 0;
+}
+
+footer p {
+    margin: 0;
+}
+
+/* Current track section */
+.current-track {
+    background-color: #fff;
+    border: 2px solid #333;
+    padding: 20px;
+    margin: 20px;
+    border-radius: 8px;
+}
+
+.track-info {
+    display: flex;
+    align-items: center;
+}
+
+.album-cover {
+    width: 150px;
+    height: 150px;
+    border-radius: 8px;
+    margin-right: 20px;
+}
+
+.track-details {
+    max-width: 600px;
+}
+
+.track-details h3 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.track-details p {
+    margin: 5px 0 0;
+}
+
+/* Previous tracks section */
+.previous-tracks {
+    background-color: #fff;
+    border: 2px solid #333;
+    padding: 20px;
+    margin: 20px;
+    border-radius: 8px;
+}
+
+.settings-form {
+    margin-bottom: 20px;
+}
+
+.input-field {
+    padding: 5px;
+    margin-right: 10px;
+}
+
+.submit-button {
+    padding: 5px 10px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.submit-button:hover {
+    background-color: #555;
+}
+
+.track-list {
+    margin-bottom: 20px;
+}
+
+.track-item {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.track-item:last-child {
+    border-bottom: none;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.pagination-button {
+    padding: 5px 10px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.pagination-button:hover {
+    background-color: #555;
+}
+
+.goto-page-form {
+    display: flex;
+    align-items: center;
+}
+
+.goto-page-form label {
+    margin-right: 10px;
+}
+

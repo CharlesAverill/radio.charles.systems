@@ -83,7 +83,7 @@ def fetch_and_store_current_track():
 
 
 # Schedule the background task
-scheduler.add_job(fetch_and_store_current_track, 'interval', seconds=10)
+scheduler.add_job(fetch_and_store_current_track, 'interval', seconds=1)
 
 # Step 1: Redirect to Spotify authorization URL
 @app.route('/login')
@@ -133,9 +133,9 @@ def callback():
     return redirect('/')
 
 # Step 3: Refresh the access token if needed
-def refresh_access_token():
+def refresh_access_token(force=False):
     global access_token, refresh_token, token_expires_at
-    if datetime.utcnow() >= token_expires_at:
+    if force or datetime.utcnow() >= token_expires_at:
         token_url = 'https://accounts.spotify.com/api/token'
         headers = {
             'Authorization': 'Basic ' + b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode(),
@@ -155,6 +155,10 @@ def refresh_access_token():
             # Update tokens in .env file
             set_key('.env', 'SPOTIFY_ACCESS_TOKEN', access_token)
             set_key('.env', 'SPOTIFY_TOKEN_EXPIRES_AT', token_expires_at.isoformat())
+            print("Refreshed token")
+        else:
+            print("Failed to refresh token")
+            print(response)
 
 # Step 4: Fetch currently playing track
 @app.route('/currently-playing')
@@ -184,10 +188,12 @@ def tracks():
         'timestamp': track.timestamp
     } for track in all_tracks])
 
+default_limit=10
+
 @app.route('/', methods=['GET', 'POST'])
 def home():
+    refresh_access_token()
     # Default values
-    default_limit = 10
     page = request.args.get('page', 1, type=int)
     limit = request.args.get('limit', default_limit, type=int)
 
@@ -216,7 +222,42 @@ def home():
         'timestamp': track.timestamp.strftime('%Y-%m-%d %H:%M:%S')
     } for track in all_tracks.items]
 
-    return render_template('index.html', tracks=tracks, page=page, total_pages=all_tracks.pages, current_track=current_track)
+    return render_template('index.html', tracks=tracks, page=page, total_pages=all_tracks.pages, current_track=current_track, limit=limit, default_limit=default_limit)
+
+@app.route('/current-track')
+def current_track():
+    refresh_access_token()
+    # Fetch current track info from Spotify API
+    response = requests.get('https://api.spotify.com/v1/me/player/currently-playing', headers={
+        'Authorization': f'Bearer {access_token}'
+    })
+    track_info = response.json()
+
+    current_track = None
+    if track_info.get('is_playing'):
+        current_track = {
+            'name': track_info['item']['name'],
+            'artist': ', '.join(artist['name'] for artist in track_info['item']['artists']),
+            'album_cover': track_info['item']['album']['images'][0]['url']  # Assuming first image is the album cover
+        }
+
+    return jsonify({'current_track': current_track})
+
+@app.route('/track-list')
+def track_list():
+    # Fetch all stored tracks with pagination
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', default_limit, type=int)
+    all_tracks = Track.query.order_by(Track.timestamp.desc()).paginate(page=page, per_page=limit, error_out=False)
+
+    # Create track list with timestamps formatted
+    tracks = [{
+        'name': track.name,
+        'artist': track.artist,
+        'timestamp': track.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    } for track in all_tracks.items]
+
+    return jsonify({'tracks': tracks, 'total_pages': all_tracks.pages})
 
 
 if __name__ == '__main__':

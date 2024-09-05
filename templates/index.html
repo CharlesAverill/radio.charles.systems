@@ -3,58 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Track Tracker</title>
-    <style>
-        .track-list { margin-bottom: 20px; }
-        .track { margin-bottom: 10px; }
-        .pagination { margin-top: 20px; }
-        .pagination button { margin: 0 5px; }
-    </style>
+    <title>Radio Charles</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+    <meta property="og:title" content="Charles Radio">
+	<meta property="og:description" content="What I'm Listening to Right Now">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="https://radio.charles.systems/">
+	<meta property="og:image" content="{{ url_for('static', filename='icon.png') }}">
+	<meta property="og:image:type" content="image/png">
+	<meta property="og:image:width" content="1609">
+	<meta property="og:image:height" content="1609">
+
 </head>
 <body>
-    <h1>Currently Playing Track</h1>
-    {% if current_track %}
-        <div>
-            <h2>{{ current_track.name }}</h2>
-            <p>{{ current_track.artist }}</p>
-            <img src="{{ current_track.album_cover }}" alt="Album Cover" style="width: 200px;">
+    <header>
+        <h1>Radio Charles</h1>
+    </header>
+
+    <section class="current-track">
+        <h2>Currently Playing</h2>
+        <div id="current-track-info">
+            {% if current_track %}
+                <div class="track-info">
+                    <img src="{{ current_track.album_cover }}" alt="Album Cover" class="album-cover" id="album-cover">
+                    <div class="track-details">
+                        <h3 id="track-name">{{ current_track.name }}</h3>
+                        <p id="track-artist">{{ current_track.artist }}</p>
+                    </div>
+                </div>
+            {% else %}
+                <p>No track information available.</p>
+            {% endif %}
         </div>
-    {% else %}
-        <p>No track information available.</p>
-    {% endif %}
+    </section>
 
-    <h1>Previously Played Tracks</h1>
-    <form method="get" action="/">
-        <label for="limit">Tracks per page:</label>
-        <input type="number" id="limit" name="limit" value="{{ request.args.get('limit', default_limit) }}" min="1">
-        <input type="submit" value="Update">
-    </form>
-
-    <div class="track-list">
-        {% for track in tracks %}
-            <div class="track">
-                <strong>{{ track.name }}</strong> by {{ track.artist }} ({{ track.timestamp }})
-            </div>
-        {% endfor %}
-    </div>
-
-    <div class="pagination">
-        {% if page > 1 %}
-            <a href="{{ url_for('home', page=page-1, limit=request.args.get('limit', default_limit)) }}">Previous</a>
-        {% endif %}
-
-        Page {{ page }} of {{ total_pages }}
-
-        {% if page < total_pages %}
-            <a href="{{ url_for('home', page=page+1, limit=request.args.get('limit', default_limit)) }}">Next</a>
-        {% endif %}
-
-        <form method="get" action="/" style="display:inline;">
-            <label for="goto-page">Go to page:</label>
-            <input type="number" id="goto-page" name="page" value="{{ page }}" min="1" max="{{ total_pages }}">
-            <input type="submit" value="Go">
+    <section class="previous-tracks">
+        <h2>Previously Played Tracks</h2>
+        <form id="settings-form" class="settings-form">
+            <label for="limit">Tracks per page:</label>
+            <input type="number" id="limit" name="limit" value="{{ request.args.get('limit', default_limit) }}" min="1" class="input-field">
+            <input type="submit" value="Update" class="submit-button">
         </form>
-    </div>
+
+        <div id="track-list" class="track-list">
+            <!-- Track items will be dynamically inserted here -->
+        </div>
+
+        <div class="pagination">
+            <button id="prev-page" class="pagination-button" data-page="prev">Previous</button>
+            <span id="pagination-info">Page {{ page }} of {{ total_pages }}</span>
+            <button id="next-page" class="pagination-button" data-page="next">Next</button>
+
+            <form id="goto-page-form" class="goto-page-form">
+                <label for="goto-page">Go to page:</label>
+                <input type="number" id="goto-page" name="page" value="{{ page }}" min="1" max="{{ total_pages }}" class="input-field">
+                <input type="submit" value="Go" class="submit-button">
+            </form>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2024 Record Store</p>
+    </footer>
+
+    <script>
+        let currentPage = {{ page }};
+        let limit = {{ request.args.get('limit', default_limit) }};
+
+        function fetchCurrentTrack() {
+            fetch('/current-track')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.current_track) {
+                        document.getElementById('track-name').textContent = data.current_track.name;
+                        document.getElementById('track-artist').textContent = data.current_track.artist;
+                        document.getElementById('album-cover').src = data.current_track.album_cover;
+		    } else {
+			console.log('no current track');
+		    }
+                })
+                .catch(error => console.error('Error fetching current track:', error));
+        }
+
+        function fetchTrackList() {
+            fetch(`/track-list?page=${currentPage}&limit=${limit}`)
+                .then(response => response.json())
+                .then(data => {
+                    const trackListContainer = document.getElementById('track-list');
+                    trackListContainer.innerHTML = '';
+                    data.tracks.forEach(track => {
+                        const trackElement = document.createElement('div');
+                        trackElement.className = 'track-item';
+                        trackElement.innerHTML = `<strong>${track.name}</strong> by ${track.artist} (${track.timestamp})`;
+                        trackListContainer.appendChild(trackElement);
+                    });
+
+                    // Update pagination info
+                    document.getElementById('pagination-info').textContent = `Page ${currentPage} of ${data.total_pages}`;
+                    
+                    // Update pagination buttons
+                    document.getElementById('prev-page').disabled = currentPage <= 1;
+                    document.getElementById('next-page').disabled = currentPage >= data.total_pages;
+                })
+                .catch(error => console.error('Error fetching track list:', error));
+        }
+
+        // Event listeners for pagination buttons
+        document.getElementById('prev-page').addEventListener('click', () => {
+            if (currentPage > 1) {
+                fetchTrackList(currentPage - 1, limit);
+                currentPage -= 1;
+            }
+        });
+
+        document.getElementById('next-page').addEventListener('click', () => {
+            fetchTrackList(currentPage + 1, limit);
+            currentPage += 1;
+        });
+
+        // Handle form submission for direct page navigation
+        document.getElementById('goto-page-form').addEventListener('submit', event => {
+            event.preventDefault();
+            const pageNumber = parseInt(document.getElementById('goto-page').value, 10);
+            if (pageNumber >= 1 && pageNumber <= {{ total_pages }}) {
+                fetchTrackList(pageNumber, limit);
+                currentPage = pageNumber;
+            }
+        });
+
+        // Handle form submission for limit update
+        document.getElementById('settings-form').addEventListener('submit', event => {
+            event.preventDefault();
+            limit = parseInt(document.getElementById('limit').value, 10);
+            fetchTrackList(currentPage, limit);
+        });
+
+        // Initial fetch
+        setInterval(fetchTrackList, 1000);
+
+        // Polling intervals
+        setInterval(fetchCurrentTrack, 1000);  // Fetch current track every 10 seconds
+    </script>
 </body>
 </html>
 
