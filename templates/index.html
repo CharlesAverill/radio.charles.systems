@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Track Tracker</title>
+    <style>
+        .track-list { margin-bottom: 20px; }
+        .track { margin-bottom: 10px; }
+        .pagination { margin-top: 20px; }
+        .pagination button { margin: 0 5px; }
+    </style>
+</head>
+<body>
+    <h1>Currently Playing Track</h1>
+    {% if current_track %}
+        <div>
+            <h2>{{ current_track.name }}</h2>
+            <p>{{ current_track.artist }}</p>
+            <img src="{{ current_track.album_cover }}" alt="Album Cover" style="width: 200px;">
+        </div>
+    {% else %}
+        <p>No track information available.</p>
+    {% endif %}
+
+    <h1>Previously Played Tracks</h1>
+    <form method="get" action="/">
+        <label for="limit">Tracks per page:</label>
+        <input type="number" id="limit" name="limit" value="{{ request.args.get('limit', default_limit) }}" min="1">
+        <input type="submit" value="Update">
+    </form>
+
+    <div class="track-list">
+        {% for track in tracks %}
+            <div class="track">
+                <strong>{{ track.name }}</strong> by {{ track.artist }} ({{ track.timestamp }})
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="{{ url_for('home', page=page-1, limit=request.args.get('limit', default_limit)) }}">Previous</a>
+        {% endif %}
+
+        Page {{ page }} of {{ total_pages }}
+
+        {% if page < total_pages %}
+            <a href="{{ url_for('home', page=page+1, limit=request.args.get('limit', default_limit)) }}">Next</a>
+        {% endif %}
+
+        <form method="get" action="/" style="display:inline;">
+            <label for="goto-page">Go to page:</label>
+            <input type="number" id="goto-page" name="page" value="{{ page }}" min="1" max="{{ total_pages }}">
+            <input type="submit" value="Go">
+        </form>
+    </div>
+</body>
+</html>
+
