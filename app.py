@@ -4,6 +4,7 @@ from flask import Flask, redirect, request, jsonify, render_template
 from dotenv import load_dotenv, set_key
 from base64 import b64encode
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from flask_sqlalchemy import SQLAlchemy
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -16,12 +17,18 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///spotify_tracks.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+def timestamp_cst():
+    n = datetime.utcnow()
+    utc = ZoneInfo('UTC')
+    cst = ZoneInfo('America/Chicago')
+    return n.replace(tzinfo=utc).astimezone(cst)
+
 # Define Track model
 class Track(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     artist = db.Column(db.String(255), nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=timestamp_cst)
     duration_ms = db.Column(db.Integer, nullable=False)
 
 # Create the database
@@ -36,7 +43,7 @@ SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI')
 # Get tokens from .env file
 access_token = os.getenv('SPOTIFY_ACCESS_TOKEN')
 refresh_token = os.getenv('SPOTIFY_REFRESH_TOKEN')
-token_expires_at = datetime.fromisoformat(os.getenv('SPOTIFY_TOKEN_EXPIRES_AT', datetime.utcnow().isoformat()))
+token_expires_at = datetime.fromisoformat(os.getenv('SPOTIFY_TOKEN_EXPIRES_AT', timestamp_cst().isoformat()))
 
 # Initialize scheduler
 scheduler = BackgroundScheduler()
@@ -45,7 +52,7 @@ scheduler.start()
 # Step 3: Refresh the access token if needed
 def refresh_access_token(force=False):
     global access_token, refresh_token, token_expires_at
-    if True or datetime.utcnow() >= token_expires_at:
+    if True or timestamp_cst() >= token_expires_at:
         token_url = 'https://accounts.spotify.com/api/token'
         headers = {
             'Authorization': 'Basic ' + b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode(),
@@ -60,7 +67,7 @@ def refresh_access_token(force=False):
             tokens = response.json()
             access_token = tokens.get('access_token')
             expires_in = tokens.get('expires_in')
-            token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            token_expires_at = timestamp_cst() + timedelta(seconds=expires_in)
             
             # Update tokens in .env file
             set_key('.env', 'SPOTIFY_ACCESS_TOKEN', access_token)
@@ -109,7 +116,7 @@ def fetch_and_store_current_track():
             # If the track is the same as the last one stored
             if track_name == last_track_name and artist_name == last_artist_name:
                 # Check if the current time is greater than the end time of the last track
-                if datetime.utcnow() < last_track_end_time:
+                if timestamp_cst() < last_track_end_time:
                     return
 
         # Store the new track
@@ -159,7 +166,7 @@ def callback():
     access_token = tokens.get('access_token')
     refresh_token = tokens.get('refresh_token')
     expires_in = tokens.get('expires_in')
-    token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+    token_expires_at = timestamp_cst() + timedelta(seconds=expires_in)
 
     # Save tokens to .env file
     set_key('.env', 'SPOTIFY_ACCESS_TOKEN', access_token)
@@ -209,11 +216,15 @@ def home():
     response = requests.get('https://api.spotify.com/v1/me/player/currently-playing', headers={
         'Authorization': f'Bearer {access_token}'
     })
-    current_track_info = response.json()
+    current_track_info = None
+    try:
+        current_track_info = response.json()
+    except:
+        pass
 
     # Extract current track details
     current_track = None
-    if current_track_info.get('is_playing'):
+    if current_track_info and current_track_info.get('is_playing'):
         current_track = {
             'name': current_track_info['item']['name'],
             'artist': ', '.join(artist['name'] for artist in current_track_info['item']['artists']),
